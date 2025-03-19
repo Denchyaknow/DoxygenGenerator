@@ -8,9 +8,14 @@ namespace DoxygenGenerator
         {
             get => EditorPrefs.GetString($"{nameof(DoxygenGenerator)}.{nameof(GeneratorSettings)}.{nameof(doxygenPath)}", string.Empty);
             set => EditorPrefs.SetString($"{nameof(DoxygenGenerator)}.{nameof(GeneratorSettings)}.{nameof(doxygenPath)}", value);
-        }
+		}
+		public static string customPath
+		{
+			get => EditorPrefs.GetString($"{nameof(DoxygenGenerator)}.{nameof(GeneratorSettings)}.{nameof(customPath)}", string.Empty);
+			set => EditorPrefs.SetString($"{nameof(DoxygenGenerator)}.{nameof(GeneratorSettings)}.{nameof(customPath)}", value);
+		}
 
-        public static string inputDirectory
+		public static string inputDirectory
         {
             get => EditorPrefs.GetString($"{nameof(DoxygenGenerator)}.{nameof(GeneratorSettings)}.{nameof(inputDirectory)}", string.Empty);
             set => EditorPrefs.SetString($"{nameof(DoxygenGenerator)}.{nameof(GeneratorSettings)}.{nameof(inputDirectory)}", value);

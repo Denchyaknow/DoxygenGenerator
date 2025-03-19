@@ -40,8 +40,12 @@ namespace DoxygenGenerator
             get => GeneratorSettings.doxygenPath;
             set => GeneratorSettings.doxygenPath = value;
         }
-
-        private string inputDirectory
+		private string customPath
+		{
+			get => GeneratorSettings.customPath;
+			set => GeneratorSettings.customPath = value;
+		}
+		private string inputDirectory
         {
             get => GeneratorSettings.inputDirectory;
             set => GeneratorSettings.inputDirectory = value;
@@ -157,9 +161,9 @@ namespace DoxygenGenerator
 
             // Select your doxygen install location
             DoxygenInstallPathGUI();
-
-            // Setup the directories
-            SetupTheDirectoriesGUI();
+            DoxyFilePathGUI();
+			// Setup the directories
+			SetupTheDirectoriesGUI();
 
             // Set your project settings
             ProjectSettingsGUI();
@@ -208,8 +212,26 @@ namespace DoxygenGenerator
             }
             EditorGUILayout.EndHorizontal();
         }
+        private void DoxyFilePathGUI()
+        {
+			EditorGUILayout.Space(EditorGUIUtility.singleLineHeight);
+			GUILayout.Label("Custom DoxyFile Path (Optional)", EditorStyles.boldLabel);
+			// Doxygen not selected error
+			if (!Directory.Exists(customPath))
+			{
+				customPath = default;
+				EditorGUILayout.HelpBox("No custom path is selected. So wont look for the DoxyFile there.", MessageType.Info, true);
+			}
+			EditorGUILayout.BeginHorizontal();
+			customPath = EditorGUILayout.DelayedTextField("Custom Doxyfile path", customPath);
+			if (GUILayout.Button("...", EditorStyles.miniButtonRight, GUILayout.Width(22)))
+			{
+				customPath = EditorUtility.OpenFolderPanel("Select your doxyFile", string.Empty, string.Empty);
+			}
+			EditorGUILayout.EndHorizontal();
+		}
 
-        private void SetupTheDirectoriesGUI()
+		private void SetupTheDirectoriesGUI()
         {
             EditorGUILayout.Space(EditorGUIUtility.singleLineHeight);
 

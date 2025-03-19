@@ -11,12 +11,13 @@ namespace DoxygenGenerator
     public static class Generator
     {
         private const string filesPath = "Packages/com.CaseyDeCoder.doxygengenerator/Editor/Files~";
-        private const string collabPath = "Assets/Plugins/DoxygenGenerator/Editor/Files~";
-
+        private const string customDoxPath = "Assets/Plugins/DoxygenGenerator/Editor/Files~";
+        //"C:\GitProjects\BadVR\DoxygenGenerator\Editor\Files~\Doxyfile"
         public static Thread GenerateAsync()
         {
             // Get settings (I find it easier to read this way)
             var doxygenPath = GeneratorSettings.doxygenPath;
+            var customPath = GeneratorSettings.customPath; 
             var inputDirectory = GeneratorSettings.inputDirectory;
             var outputDirectory = GeneratorSettings.outputDirectory;
             var project = GeneratorSettings.project;
@@ -32,9 +33,10 @@ namespace DoxygenGenerator
             var hideScopeNames = GeneratorSettings.o_HideScopeNames;
             var hideCompoundReference = GeneratorSettings.o_HideCompoundRefs;
             var mainPagePath = GeneratorSettings.o_MainPage;
-            bool collabMode = !File.Exists(filesPath);//For those that want to collab like Dencho
+            bool useCustomPath = File.Exists(customPath);
             // Add the Doxyfile
-            var doxyPath = (collabMode ? collabPath : filesPath);
+            var doxyPath = (useCustomPath ? customDoxPath : filesPath);
+            Debug.Log($"Looking for Doxyfile in {doxyPath}");
             var doxyFileSource = $"{doxyPath}/Doxyfile";
             var doxyFileDestination = $"{outputDirectory}/Doxyfile";
             File.Copy(doxyFileSource, doxyFileDestination, true);
