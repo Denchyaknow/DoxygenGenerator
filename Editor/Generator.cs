@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -17,9 +18,9 @@ namespace DoxygenGenerator
         {
             // Get settings (I find it easier to read this way)
             var doxygenPath = GeneratorSettings.doxygenPath;
-            var customPath = GeneratorSettings.customPath; 
-            var inputDirectory = GeneratorSettings.inputDirectory;
-            var outputDirectory = GeneratorSettings.outputDirectory;
+            var customPath = GeneratorSettings.customPath;
+			var inputPaths = GeneratorSettings.InputPaths;
+			var outputDirectory = GeneratorSettings.outputDirectory;
             var project = GeneratorSettings.project;
             var synopsis = GeneratorSettings.synopsis;
             var version = GeneratorSettings.version;
@@ -34,8 +35,15 @@ namespace DoxygenGenerator
             var hideCompoundReference = GeneratorSettings.o_HideCompoundRefs;
             var mainPagePath = GeneratorSettings.o_MainPage;
             bool useCustomPath = File.Exists(customPath);
-            // Add the Doxyfile
-            var doxyPath = (useCustomPath ? customDoxPath : filesPath);
+
+			if (inputPaths.Any(p => !Directory.Exists(p)))
+			{
+				Debug.LogError("One or more input paths do not exist. Generation aborted.");
+				return null;
+			}
+
+			// Add the Doxyfile
+			var doxyPath = (useCustomPath ? customDoxPath : filesPath);
             Debug.Log($"Looking for Doxyfile in {doxyPath}");
             var doxyFileSource = $"{doxyPath}/Doxyfile";
             var doxyFileDestination = $"{outputDirectory}/Doxyfile";
@@ -90,8 +98,29 @@ namespace DoxygenGenerator
             doxyFileStringBuilder = doxyFileStringBuilder.Replace("PROJECT_NAME           =", $"PROJECT_NAME           = \"{project}\"");
             doxyFileStringBuilder = doxyFileStringBuilder.Replace("PROJECT_BRIEF          =", $"PROJECT_BRIEF          = \"{synopsis}\"");
             doxyFileStringBuilder = doxyFileStringBuilder.Replace("PROJECT_NUMBER         =", $"PROJECT_NUMBER         = {version}");
-            doxyFileStringBuilder = doxyFileStringBuilder.Replace("INPUT                  =", $"INPUT                  = \"{inputDirectory}\"");
-            doxyFileStringBuilder = doxyFileStringBuilder.Replace("OUTPUT_DIRECTORY       =", $"OUTPUT_DIRECTORY       = \"{outputDirectory}\"");
+
+			//doxyFileStringBuilder = doxyFileStringBuilder.Replace("INPUT                  =", $"INPUT                  = \"{inputDirectory}\"");
+
+			// Ensure paths are quoted and combined
+			//string inputList = string.Join(" ", inputPaths.Select(p => $"\"{p}\""));
+			// This replaces your current inputList generation code
+			var allDirectories = new List<string>();
+
+			foreach (var path in inputPaths)
+			{
+				allDirectories.AddRange(GetAllSubdirectoriesRecursive(Path.GetFullPath(path)));
+			}
+
+			string inputList = string.Join(" ", allDirectories.Select(p => $"\"{p}\""));
+
+			// Replace INPUT field in Doxyfile
+			doxyFileStringBuilder = doxyFileStringBuilder.Replace(
+				"INPUT                  =", $"INPUT                  = {inputList}");
+			doxyFileStringBuilder = doxyFileStringBuilder.Replace("INPUT                  =", $"INPUT                  = {inputList}");
+            Debug.Log($"Generated Input List for Doxyfile: \n{inputList}");//Should result to INPUT = "path/to/source1" "path/to/source2" "path/to/source3"
+
+
+			doxyFileStringBuilder = doxyFileStringBuilder.Replace("OUTPUT_DIRECTORY       =", $"OUTPUT_DIRECTORY       = \"{outputDirectory}\"");
             //Set Main Page
             //doxyFileStringBuilder = doxyFileStringBuilder.Replace("USE_MDFILE_AS_MAINPAGE = ", string.Format("USE_MDFILE_AS_MAINPAGE = {0}", mainPagePath));
             //Custom Header
@@ -167,9 +196,24 @@ namespace DoxygenGenerator
             }
     }
 
+		// Recursively gets all subdirectories starting from the given root
+		private static List<string> GetAllSubdirectoriesRecursive(string root)
+		{
+			var directories = new List<string>();
+			if (!Directory.Exists(root))
+				return directories;
 
+			directories.Add(root); // Include the root itself
 
-        static string ExtractFilePatterns(string configString)
+			foreach (var dir in Directory.GetDirectories(root))
+			{
+				directories.AddRange(GetAllSubdirectoriesRecursive(dir));
+			}
+
+			return directories;
+		}
+
+		static string ExtractFilePatterns(string configString)
         {
             StringBuilder filePatternsBuilder = new StringBuilder();
             bool filePatternsSection = false;

@@ -16,8 +16,10 @@ namespace DoxygenGenerator
         private string setMainPage { get => GeneratorSettings.o_MainPage; set => GeneratorSettings.o_MainPage = value; }
         private bool isSelectingMainPage = false;
         private List<string> mainPageCandidates = new List<string>();
-        //Option GUIs
-        private GUIContent o_MarkdownSupportLabel;
+		private List<string> inputPaths = new List<string>();
+
+		//Option GUIs
+		private GUIContent o_MarkdownSupportLabel;
         private GUIContent o_AlNumSortingLabel;
         private GUIContent o_showReferencedByRelationLabel;
         private GUIContent o_showReferencesRelationLabel;
@@ -30,9 +32,14 @@ namespace DoxygenGenerator
         private GUIStyle o_ToggleStyle { get => EditorStyles.toolbarButton; }
 
         private bool canGenerate => File.Exists(doxygenPath)
-            && Directory.Exists(inputDirectory)
-            && Directory.Exists(outputDirectory)
+	        && inputPaths.All(p => !string.IsNullOrEmpty(p) && Directory.Exists(GetAbsolutePath(p)))
+			//&& allInputsValid//Directory.Exists(inputDirectory)
+			&& Directory.Exists(outputDirectory)
             && doxygenThread == null;
+
+		public bool allInputsValid => inputPaths.Count > 0 && inputPaths.All(p =>
+						 !string.IsNullOrEmpty(p) && Directory.Exists(GetAbsolutePath(p)));
+
 
         #region Settings
         private string doxygenPath
@@ -50,8 +57,12 @@ namespace DoxygenGenerator
             get => GeneratorSettings.inputDirectory;
             set => GeneratorSettings.inputDirectory = value;
         }
-
-        private string outputDirectory
+        private static List<string> staticInputPaths
+		{
+			get => GeneratorSettings.InputPaths;
+			set => GeneratorSettings.InputPaths = value;
+		}
+		private string outputDirectory
         {
             get => GeneratorSettings.outputDirectory;
             set => GeneratorSettings.outputDirectory = value;
@@ -129,12 +140,12 @@ namespace DoxygenGenerator
             set => GeneratorSettings.o_HideCompoundRefs = value;
         }
 
-        #endregion
+		#endregion
 
-        [MenuItem("Window/Doxygen Generator")]
+		[MenuItem("Window/Doxygen Generator")]
         public static void Initialize()
         {
-            var window = GetWindow<GeneratorWindow>("Doxygen Generator");
+			var window = GetWindow<GeneratorWindow>("Doxygen Generator");
             window.minSize = new Vector2(420, 245);
             window.Show();
         }
@@ -150,23 +161,41 @@ namespace DoxygenGenerator
             o_hideScopeNamesLabel = new GUIContent("Hide Scope Names", "Toggle to hide scope names in the generated documentation for a cleaner look.");
             o_hideCompoundRefsLabel = new GUIContent("Hide Compound References", "Toggle to hide references to compound types, like classes or structs, within the documentation.");
         }
+		private void InitDoxyConfig()
+		{
+			DoxygenConfig config = File.Exists(GeneratorSettings.configFile)
+	        ? JsonUtility.FromJson<DoxygenConfig>(File.ReadAllText(GeneratorSettings.configFile))
+	        : new DoxygenConfig();
+			if (config == null || config.inputPaths == null || config.inputPaths.Count == 0)
+            {
+                Debug.Log("Default Doxy Config Loaded :O");
+				config.inputPaths = new List<string> { "" }; // ensure at least one entry
+            }
+		}
 
-        private void OnEnable()
+		private void OnEnable()
         {
-            InitGuiContent();
-        }
-        private void OnGUI()
+			inputPaths = new List<string>(GeneratorSettings.InputPaths);
+
+			InitGuiContent();
+            InitDoxyConfig();
+		}
+		private void OnDisable()
+		{
+			GeneratorSettings.InputPaths = inputPaths;
+		}
+		private void OnGUI()
         {
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
 
             // Select your doxygen install location
             DoxygenInstallPathGUI();
             DoxyFilePathGUI();
-			// Setup the directories
-			SetupTheDirectoriesGUI();
-
-            // Set your project settings
-            ProjectSettingsGUI();
+            // Setup the directories
+            //SetupTheDirectoriesGUI();
+            SetupMultipleDirectoriesGUI();
+			// Set your project settings
+			ProjectSettingsGUI();
 
             using (var splitScope = new EditorGUILayout.HorizontalScope(GUI.skin.box))
             {
@@ -185,8 +214,15 @@ namespace DoxygenGenerator
 
             EditorGUILayout.EndScrollView();
         }
+		private static string GetAbsolutePath(string path)
+		{
+			if (string.IsNullOrEmpty(path))
+				return string.Empty;
 
-        private void DoxygenInstallPathGUI()
+			string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+			return Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(projectRoot, path));
+		}
+		private void DoxygenInstallPathGUI()
         {
             EditorGUILayout.Space(EditorGUIUtility.singleLineHeight);
 
@@ -212,6 +248,7 @@ namespace DoxygenGenerator
             }
             EditorGUILayout.EndHorizontal();
         }
+
         private void DoxyFilePathGUI()
         {
 			EditorGUILayout.Space(EditorGUIUtility.singleLineHeight);
@@ -231,6 +268,54 @@ namespace DoxygenGenerator
 			EditorGUILayout.EndHorizontal();
 		}
 
+		private void SetupMultipleDirectoriesGUI()
+        {
+			EditorGUILayout.Space(EditorGUIUtility.singleLineHeight);
+			GUILayout.Label("Setup the Input Directories", EditorStyles.boldLabel);
+
+			for (int i = 0; i < inputPaths.Count; i++)
+			{
+				EditorGUILayout.BeginHorizontal();
+				string label = (i == 0) ? "Input Directory" : $"Input Directory {i + 1}";
+
+				string newPath = EditorGUILayout.DelayedTextField(label, inputPaths[i]);
+
+				if (GUILayout.Button("...", EditorStyles.miniButtonLeft, GUILayout.Width(22)))
+				{
+					string selected = EditorUtility.OpenFolderPanel("Select Input Directory", "", "");
+					if (!string.IsNullOrEmpty(selected))
+					{
+						newPath = selected;
+						GUI.FocusControl(null);
+					}
+				}
+
+				if (newPath != inputPaths[i])
+				{
+					inputPaths[i] = newPath;
+					GeneratorSettings.InputPaths = new List<string>(inputPaths); // explicit save
+				}
+
+				if (inputPaths.Count > 1 && GUILayout.Button("-", EditorStyles.miniButtonRight, GUILayout.Width(22)))
+				{
+					inputPaths.RemoveAt(i--);
+					GeneratorSettings.InputPaths = new List<string>(inputPaths); // explicit save
+				}
+				EditorGUILayout.EndHorizontal();
+			}
+
+			if (GUILayout.Button("Add Input Path"))
+			{
+				inputPaths.Add(string.Empty);
+				GeneratorSettings.InputPaths = new List<string>(inputPaths); // explicit save
+			}
+
+			bool allInputsValid = inputPaths.All(p => !string.IsNullOrEmpty(p) && Directory.Exists(GetAbsolutePath(p)));
+			if (!allInputsValid)
+			{
+				EditorGUILayout.HelpBox("One or more input directories are not set or do not exist. Please select valid directories.", MessageType.Error);
+			}
+		}
 		private void SetupTheDirectoriesGUI()
         {
             EditorGUILayout.Space(EditorGUIUtility.singleLineHeight);

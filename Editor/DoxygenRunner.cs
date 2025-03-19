@@ -20,16 +20,16 @@ namespace DoxygenGenerator
         List<string> DoxyLog = new List<string>();
         public string EXE = null;
         public string[] Args;
-        static string WorkingFolder;
+		private string workingFolder; // instance-level variable
 
-        public DoxygenRunner(string exepath, string[] args, DoxygenThreadSafeOutput safeoutput, Action<int> callback)
+		public DoxygenRunner(string exepath, string[] args, DoxygenThreadSafeOutput safeoutput, Action<int> callback)
         {
             EXE = exepath;
             Args = args;
             SafeOutput = safeoutput;
             onCompleteCallBack = callback;
-            WorkingFolder = FileUtil.GetUniqueTempPathInProject();
-            Directory.CreateDirectory(WorkingFolder);
+			workingFolder = FileUtil.GetUniqueTempPathInProject();
+            Directory.CreateDirectory(workingFolder);
         }
 
         public void updateOuputString(string output)
@@ -57,7 +57,7 @@ namespace DoxygenGenerator
         /// <exception cref="FileNotFoundException">Raised when the exe was not found</exception>
         /// <exception cref="ArgumentNullException">Raised when one of the arguments is null</exception>
         /// <exception cref="ArgumentOutOfRangeException">Raised if an argument contains '\0', '\r', or '\n'
-        public static int Run(Action<string> output, TextReader input, string exe, params string[] args)
+        public int Run(Action<string> output, TextReader input, string exe, params string[] args)
         {
             if (String.IsNullOrEmpty(exe))
                 throw new FileNotFoundException();
@@ -72,8 +72,8 @@ namespace DoxygenGenerator
             psi.WindowStyle = ProcessWindowStyle.Hidden;
             psi.CreateNoWindow = true;
             psi.ErrorDialog = false;
-            psi.WorkingDirectory = WorkingFolder;
-            psi.FileName = FindExePath(exe);
+			psi.WorkingDirectory = workingFolder;
+			psi.FileName = FindExePath(exe);
             psi.Arguments = EscapeArguments(args);
 
             using (Process process = Process.Start(psi))
